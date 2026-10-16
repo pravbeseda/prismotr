@@ -1,0 +1,11 @@
+# The linter set of the CI gate (AGENTS.md, "Quality gates").
+version: "2"
+
+linters:
+  enable:
+    - errcheck
+    - govet
+    - ineffassign
+    - staticcheck
+    - gocritic
+    - revive

@@ -1,0 +1,47 @@
+# Quality gates from AGENTS.md. A red check blocks the merge.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: gofmt
+        run: |
+          unformatted=$(gofmt -l .)
+          if [ -n "$unformatted" ]; then
+            echo "not gofmt-ed:"
+            echo "$unformatted"
+            exit 1
+          fi
+
+      - name: go vet
+        run: go vet ./...
+
+      - uses: golangci/golangci-lint-action@v8
+        with:
+          version: latest
+
+      - name: go test
+        run: go test -race -cover ./...
+
+      # The shell this repository ships is POSIX sh, so -s sh checks it as its shebang claims
+      # and as Debian's /bin/sh (dash) will read it. deploy/ arrives with the release pipeline;
+      # searching from the root keeps the step green under pipefail while it is absent.
+      - name: shellcheck
+        run: |
+          find . -type f \( -path './.githooks/*' -o -path './deploy/*.sh' \) \
+            | xargs -r shellcheck -s sh
