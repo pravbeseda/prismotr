@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/pravbeseda/prismotr/internal/config"
+	"github.com/pravbeseda/prismotr/internal/status"
 	"github.com/pravbeseda/prismotr/internal/version"
 	"github.com/pravbeseda/prismotr/internal/web"
 )
@@ -90,8 +91,11 @@ func run(ctx context.Context, args []string, out io.Writer, env func(string) (st
 		}
 	}()
 
+	collect := func(ctx context.Context, cfg *config.Config, sites []config.Site) []status.Card {
+		return status.Collect(ctx, status.Sources(cfg, sites, status.Production), status.Options{})
+	}
 	server := &http.Server{
-		Handler:           web.New(cfg.Current, version.Current),
+		Handler:           web.New(cfg.Current, version.Current, collect),
 		ReadHeaderTimeout: readHeaderTimeout,
 	}
 	served := make(chan error, 1)

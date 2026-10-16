@@ -4,6 +4,7 @@ package web
 import (
 	"bytes"
 	"cmp"
+	"context"
 	"embed"
 	"html/template"
 	"log/slog"
@@ -12,6 +13,7 @@ import (
 	"strings"
 
 	"github.com/pravbeseda/prismotr/internal/config"
+	"github.com/pravbeseda/prismotr/internal/status"
 )
 
 //go:embed templates/*.html
@@ -19,16 +21,20 @@ var templates embed.FS
 
 var sitesPage = template.Must(template.ParseFS(templates, "templates/sites.html"))
 
+// Collector reads the status cards for a configuration, the sites in menu order.
+type Collector func(ctx context.Context, cfg *config.Config, sites []config.Site) []status.Card
+
 // Handler serves the sites page at base_path. The configuration is read on every request,
 // so a reload is seen without a restart.
 type Handler struct {
 	current func() *config.Config
 	version string
+	collect Collector
 }
 
 // New builds the handler; current returns the configuration in force.
-func New(current func() *config.Config, version string) *Handler {
-	return &Handler{current: current, version: version}
+func New(current func() *config.Config, version string, collect Collector) *Handler {
+	return &Handler{current: current, version: version, collect: collect}
 }
 
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -42,8 +48,11 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, http.StatusText(http.StatusMethodNotAllowed), http.StatusMethodNotAllowed)
 		return
 	}
+	ordered := menuOrder(cfg.Sites)
+	d := pageData(cfg, ordered, h.version)
+	d.Cards = h.collect(r.Context(), cfg, ordered)
 	var page bytes.Buffer
-	if err := sitesPage.Execute(&page, pageData(cfg, h.version)); err != nil {
+	if err := sitesPage.Execute(&page, d); err != nil {
 		slog.Error("render the sites page", "error", err)
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
@@ -70,16 +79,18 @@ type entry struct {
 type data struct {
 	Title   string
 	Menu    []entry
+	Cards   []status.Card
+	HubURL  string
 	Version string
 }
 
-// pageData lays the menu out as the static page did: locations by (order, name), then
+// menuOrder lays the sites out as the static page did: locations by (order, name), then
 // vhosts by (order, name). The file carries one list; the grouping is this one rule.
-func pageData(cfg *config.Config, version string) data {
-	d := data{Title: cmp.Or(cfg.Domain, cfg.Host), Version: version}
+func menuOrder(sites []config.Site) []config.Site {
+	var ordered []config.Site
 	for _, kind := range []config.Kind{config.Location, config.Vhost} {
 		var group []config.Site
-		for _, s := range cfg.Sites {
+		for _, s := range sites {
 			if s.Kind == kind {
 				group = append(group, s)
 			}
@@ -87,9 +98,15 @@ func pageData(cfg *config.Config, version string) data {
 		slices.SortStableFunc(group, func(a, b config.Site) int {
 			return cmp.Or(cmp.Compare(a.Order, b.Order), strings.Compare(a.Name, b.Name))
 		})
-		for _, s := range group {
-			d.Menu = append(d.Menu, menuEntry(s))
-		}
+		ordered = append(ordered, group...)
+	}
+	return ordered
+}
+
+func pageData(cfg *config.Config, ordered []config.Site, version string) data {
+	d := data{Title: cmp.Or(cfg.Domain, cfg.Host), HubURL: cfg.HubURL, Version: version}
+	for _, s := range ordered {
+		d.Menu = append(d.Menu, menuEntry(s))
 	}
 	return d
 }
