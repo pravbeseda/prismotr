@@ -13,8 +13,8 @@ and the list of sites every page renders. The file is written whole by ansible-h
 every run; the daemon never writes it, never fills in what it does not say, and never looks
 anywhere else for what is attached.
 
-It does not decide how the menu is ordered or grouped — that is the sites page
-([web](web.md), when it exists) — and it does not read any host state.
+It does not decide how the menu is ordered or grouped — that is the sites page in
+`internal/web` — and it does not read any host state.
 
 ## The file
 

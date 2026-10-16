@@ -15,6 +15,8 @@ gofmt -l . && go vet ./...   # the fast pair, also run by the pre-commit hook
 golangci-lint run            # the full linter set, also run by CI
 
 go run ./cmd/prismotr --version
+go run ./cmd/prismotr --config prismotr.yaml.example --listen 127.0.0.1:8100
+kill -HUP <pid>                  # reload the configuration file
 ```
 
 **Where the project stands is not written here.** The plan in
