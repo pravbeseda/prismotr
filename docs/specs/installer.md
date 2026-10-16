@@ -225,8 +225,9 @@ No file here holds a secret, so no mode is corrected and the environment file is
   started again. A daemon stopped for maintenance stays stopped only with its timer stopped.
 - **Rotating the signing key** touches the secret in the release environment,
   `deploy/release-signing-key.pub`, the copy inside `prismotr-install.sh`, the fingerprint in
-  [release.md](release.md) and in ansible-hosts, and the kept script on every host; the
-  in-repository copies are held in step by tests.
+  [release.md](release.md) and in the `signed_release` registry of ansible-hosts, and the
+  kept script on every host; the in-repository copies are held in step by tests, and the
+  next run of the play replaces the kept script once the registry entry is updated.
 - **A signature does not prove freshness.** Whoever answers for the origin can serve a
   genuine older release for ever; the newest release's downgrade guard is what stops it
   rolling the fleet back.
