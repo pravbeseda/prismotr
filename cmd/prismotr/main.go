@@ -110,7 +110,9 @@ func run(ctx context.Context, args []string, out io.Writer, env func(string) (st
 		if err := server.Shutdown(closing); err != nil {
 			return fmt.Errorf("stop serving: %w", err)
 		}
-		<-served
+		if err := <-served; !errors.Is(err, http.ErrServerClosed) {
+			return fmt.Errorf("serve on %s: %w", opts.listen, err)
+		}
 		return nil
 	}
 }
