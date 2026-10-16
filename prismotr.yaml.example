@@ -1,0 +1,24 @@
+# Example configuration — synthetic values only. The real file is /etc/prismotr/prismotr.yaml,
+# written whole by ansible-hosts on every run and read by the daemon at startup and on SIGHUP.
+# Every rule is docs/specs/config.md.
+
+host: host-a                               # required: the inventory name
+domain: host-a.example.com                 # optional: the host's own name
+base_path: /prismotr                       # required: "/" or "/<segment>", no trailing slash
+hub_url: https://hub.example.com/nodes/host-a   # optional: rendered as given
+
+# The menu. Locations are paths on the host's default vhost; vhosts have a domain of their own.
+sites:
+  - name: munin
+    kind: location
+    title: Munin
+    path: /munin
+    order: 20
+  - name: shop
+    kind: vhost
+    domain: shop.example.com
+    aliases: [www.shop.example.com]
+    cert_domain: shop.example.com          # /etc/letsencrypt/live/<cert_domain>/
+    logs: [/var/log/nginx/shop-access.log, /var/log/nginx/shop-error.log]
+    php_fpm_versions: ["8.4"]
+    order: 50

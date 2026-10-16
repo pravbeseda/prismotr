@@ -24,3 +24,4 @@ One table per subsystem; each test cites the row it covers. New specs start from
 
 | Spec | Owns | Status |
 |---|---|---|
+| [config.md](specs/config.md) | `internal/config`: the file ansible-hosts writes, its validation, reload | draft |
