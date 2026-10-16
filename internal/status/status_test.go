@@ -94,6 +94,7 @@ func fakeProc(t *testing.T) string {
 			"/dev/sda1 / ext4 rw,relatime 0 0\n" +
 			"tmpfs /run tmpfs rw 0 0\n" +
 			"/dev/sdb1 /srv xfs rw 0 0\n" +
+			"/dev/sda2 /boot/efi vfat rw 0 0\n" +
 			"/dev/sda1 /snap/x squashfs ro 0 0\n",
 	}
 	for name, body := range files {
@@ -132,6 +133,8 @@ func hostSource(t *testing.T, proc, pathDir, statusURL string, sites ...config.S
 				return 100 << 30, 40 << 30, nil
 			case "/srv":
 				return 1 << 40, 1 << 39, nil
+			case "/boot/efi":
+				return 300 << 20, 240 << 20, nil
 			}
 			return 0, 0, errors.New("no such mount")
 		},
@@ -146,10 +149,11 @@ func TestTheHostCardReadsUptimeLoadAndDisks(t *testing.T) {
 	}
 	got := rows(card)
 	for label, want := range map[string]string{
-		"Uptime":    "1d 2h 3m",
-		"Load":      "0.42 0.35 0.30",
-		"Disk /":    "60% used, 40 GiB free of 100 GiB",
-		"Disk /srv": "50% used, 512 GiB free of 1.0 TiB",
+		"Uptime":         "1d 2h 3m",
+		"Load":           "0.42 0.35 0.30",
+		"Disk /":         "60% used, 40 GiB free of 100 GiB",
+		"Disk /srv":      "50% used, 512 GiB free of 1.0 TiB",
+		"Disk /boot/efi": "20% used, 240 MiB free of 300 MiB", // a UEFI system partition is under a GiB
 	} {
 		if got[label] != want {
 			t.Errorf("%s = %q, want %q", label, got[label], want)

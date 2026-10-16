@@ -132,15 +132,19 @@ func realStatfs(path string) (total, free uint64, err error) {
 	return uint64(s.Blocks) * uint64(s.Bsize), uint64(s.Bavail) * uint64(s.Bsize), nil //nolint:unconvert // platform widths differ
 }
 
-// size renders a size the way an operator reads a disk: whole GiB below a TiB, one decimal
-// above.
+// size renders a size the way an operator reads a disk: whole MiB below a GiB — /boot/efi is
+// a few hundred of them — whole GiB below a TiB, one decimal above.
 func size(n uint64) string {
+	const mib = 1 << 20
 	const gib = 1 << 30
 	const tib = 1 << 40
-	if n >= tib {
+	switch {
+	case n >= tib:
 		return fmt.Sprintf("%.1f TiB", float64(n)/tib)
+	case n >= gib:
+		return fmt.Sprintf("%d GiB", n/gib)
 	}
-	return fmt.Sprintf("%d GiB", n/gib)
+	return fmt.Sprintf("%d MiB", n/mib)
 }
 
 // units is nginx and every php<ver>-fpm the sites declare, each once.

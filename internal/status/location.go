@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"net"
 	"net/http"
-	"time"
 
 	"github.com/pravbeseda/prismotr/internal/config"
 )
@@ -28,8 +27,6 @@ type Location struct {
 // Name says where the card was read from.
 func (Location) Name() string { return "a request over loopback" }
 
-const probeTimeout = 3 * time.Second
-
 func (l Location) Read(ctx context.Context) (Card, error) {
 	card := Card{Title: cmp.Or(l.Site.Title, l.Site.Name)}
 	card.Rows = append(card.Rows, Row{Label: "Link", Value: l.Site.Path})
@@ -37,9 +34,8 @@ func (l Location) Read(ctx context.Context) (Card, error) {
 	return card, nil
 }
 
+// probe is bounded by the per-source timeout Collect sets, like every other source.
 func (l Location) probe(ctx context.Context) string {
-	ctx, cancel := context.WithTimeout(ctx, probeTimeout)
-	defer cancel()
 	tlsClient := &http.Client{
 		Transport:     &http.Transport{TLSClientConfig: &tls.Config{ServerName: l.Domain, InsecureSkipVerify: true}}, //nolint:gosec // reachability, not identity: loopback, and nginx holds the real check
 		CheckRedirect: noRedirect,
