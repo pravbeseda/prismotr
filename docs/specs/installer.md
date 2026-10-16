@@ -1,6 +1,6 @@
 # Spec: Installer
 
-- **Status:** draft
+- **Status:** approved 2026-10-16 (reviewed and in force)
 - **Owns:** `deploy/prismotr-install.sh` — the kept script, and the one an operator runs — and
   the contents of the installer archive a release carries: `install.sh`, the service
   definitions and the examples

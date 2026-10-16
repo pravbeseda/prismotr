@@ -25,6 +25,6 @@ One table per subsystem; each test cites the row it covers. New specs start from
 
 | Spec | Owns | Status |
 |---|---|---|
-| [config.md](specs/config.md) | `internal/config`: the file ansible-hosts writes, its validation, reload | draft |
-| [installer.md](specs/installer.md) | `deploy/prismotr-install.sh` and the installer a release carries: fetching, verifying, installing, following a target | draft |
-| [release.md](specs/release.md) | The release and tagging workflows, the signing key, `verify-release.sh`, `tag-version.sh`, `next-tag.sh` | draft |
+| [config.md](specs/config.md) | `internal/config`: the file ansible-hosts writes, its validation, reload | approved |
+| [installer.md](specs/installer.md) | `deploy/prismotr-install.sh` and the installer a release carries: fetching, verifying, installing, following a target | approved |
+| [release.md](specs/release.md) | The release and tagging workflows, the signing key, `verify-release.sh`, `tag-version.sh`, `next-tag.sh` | approved |

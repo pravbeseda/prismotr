@@ -1,6 +1,6 @@
 # Spec: Configuration
 
-- **Status:** draft
+- **Status:** approved 2026-10-16 (reviewed and in force)
 - **Owns:** `internal/config`: the file ansible-hosts writes, its validation, and the
   configuration in force while the daemon runs
 - **Decisions:** the contract in ansible-hosts, `.github/tasks/task12-prismotr-panel.md`,

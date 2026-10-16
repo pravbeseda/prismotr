@@ -1,6 +1,6 @@
 # Plan: v1 — the read-only panel
 
-- **Status:** accepted 2026-10-16; progress is tracked in the open pull request
+- **Status:** done 2026-10-16; every step landed through pull request #1 and the end-to-end run of step 11 passed on a live host
 - **Source:** the contract in ansible-hosts, `.github/tasks/task12-prismotr-panel.md`
   (section *Boundary between the two repositories*); this plan derives from it and does not
   restate it. Where the two disagree, the contract wins and this file is corrected.

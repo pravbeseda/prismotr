@@ -1,6 +1,6 @@
 # Spec: Release
 
-- **Status:** draft
+- **Status:** approved 2026-10-16 (reviewed and in force)
 - **Owns:** `.github/workflows/release.yml`, `.github/workflows/auto-tag.yml`,
   `deploy/verify-release.sh`, `deploy/tag-version.sh`, `deploy/next-tag.sh`,
   `deploy/release-signing-key.pub`, and the version string the binary reports
