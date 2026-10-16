@@ -50,8 +50,9 @@ re-designed:
   divergence from monitor is a deliberate edit to a test, not drift.
 - A change monitor makes to its mechanism does not reach this project by itself; porting it
   is a decision of its own.
-- The key's fingerprint is a default of `sites/prismotr` in ansible-hosts, which is where an
-  operator checks a downloaded script against something outside itself.
+- The key's fingerprint is the `prismotr` entry of `signed_release_key_fingerprints` in
+  `roles/signed_release` of ansible-hosts, which is where an operator checks a downloaded
+  script against something outside itself.
 
 ## Alternatives
 

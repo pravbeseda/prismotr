@@ -105,9 +105,10 @@ names (P1, P2, P3) are kept so the two repositories can refer to the same milest
    answers on loopback, and without that file it installs, names the missing file and starts
    nothing; a second run with `--follow-target` installs nothing and reports the version
    already in place.
-   → hand-off: the key's fingerprint goes to `sites/prismotr` defaults in ansible-hosts
-   (step A2 there); the `release` environment and its tag policy are set by hand in the
-   GitHub repository settings, since no file in the tree can.
+   → hand-off: the key's fingerprint goes to the `prismotr` entry of
+   `signed_release_key_fingerprints` in `roles/signed_release` of ansible-hosts (step A2
+   there); the `release` environment and its tag policy are set by hand in the GitHub
+   repository settings, since no file in the tree can.
 
 ### P3 — status cards
 

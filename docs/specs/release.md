@@ -32,8 +32,9 @@ gave it.
 
 A signature is ECDSA P-256 over SHA-256, made and verified by `openssl dgst`. The public half
 lives in the repository as `deploy/release-signing-key.pub` and inside `prismotr-install.sh`.
-Its fingerprint, the SHA-256 of the DER encoding, is what ansible-hosts carries as a default
-of `sites/prismotr` and what an operator checks a downloaded script against:
+Its fingerprint, the SHA-256 of the DER encoding, is what ansible-hosts carries as the
+`prismotr` entry of `signed_release_key_fingerprints` in `roles/signed_release`, its one
+registry of release keys, and what an operator checks a downloaded script against:
 
 ```
 889cfd8d32f832f9b60baa40a49ccb8ab64a153d8ffb4c07d959a54dde4cd9c4
