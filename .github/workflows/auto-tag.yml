@@ -1,0 +1,117 @@
+# Tagging rules from docs/specs/release.md#tagging-a-merge. A merge into main takes the next
+# version and starts the release for it; `gh workflow disable auto-tag.yml` switches that off
+# and leaves a tag pushed by hand releasing as before.
+name: Auto-tag
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - "docs/**"
+      - "**.md"
+
+permissions:
+  contents: read
+
+# Named explicitly, because only then does GitHub add pipefail: a failing `git tag` feeding
+# next-tag.sh would otherwise pass for a repository with no tags and choose v0.0.1.
+defaults:
+  run:
+    shell: bash
+
+# One run at a time, and a merge waits its turn rather than replacing one already waiting,
+# so every merge gets its own run.
+concurrency:
+  group: auto-tag
+  cancel-in-progress: false
+  queue: max
+
+jobs:
+  tag:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # create the tag
+      actions: write # start the release workflow
+      pull-requests: read # read the merged pull request's labels
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      # Pinned by commit, and keeping no credential, because this job can push a tag.
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Choose the tag
+        id: tag
+        run: |
+          # A re-run finds the tag its first run made, and starts the release that tag may
+          # still be missing instead of taking another version.
+          for candidate in $(git tag --points-at "$GITHUB_SHA" --list 'v*'); do
+            if deploy/tag-version.sh "$candidate" >/dev/null 2>&1; then
+              echo "$GITHUB_SHA already carries $candidate"
+              echo "tag=$candidate" >> "$GITHUB_OUTPUT"
+              echo "existing=true" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+          done
+
+          # GitHub does not promise the queue keeps merge order, and a failed run can be re-run
+          # after later merges: a commit a later tag on main already contains shipped in that
+          # release, and tagging it now would give older code the higher version. A tag off main
+          # counts for nothing here, since release.yml refuses to release it.
+          for candidate in $(git tag --contains "$GITHUB_SHA" --merged origin/main --list 'v*'); do
+            if deploy/tag-version.sh "$candidate" >/dev/null 2>&1; then
+              echo "$GITHUB_SHA already shipped in $candidate: nothing to tag"
+              exit 0
+            fi
+          done
+
+          # The pull request behind a merge can be missing from the API for a moment after the
+          # merge, and releasing a release:none merge as a patch is worse than waiting.
+          count=0
+          for attempt in 1 2 3 4 5; do
+            if pulls=$(gh api "repos/$GH_REPO/commits/$GITHUB_SHA/pulls" \
+              --jq '[.[] | select(.merged_at != null and .base.ref == "main")]'); then
+              count=$(jq length <<<"$pulls")
+              [ "$count" -eq 0 ] || break
+            fi
+            [ "$attempt" -eq 5 ] || sleep 10
+          done
+          if [ "$count" -eq 0 ]; then
+            echo "refusing $GITHUB_SHA: no merged pull request found behind it" >&2
+            exit 1
+          fi
+
+          mapfile -t labels < <(jq -r '.[].labels[].name' <<<"$pulls")
+          tag=$(git tag --list 'v*' | deploy/next-tag.sh "${labels[@]}")
+          if [ -z "$tag" ]; then
+            echo "release:none: nothing to tag"
+            exit 0
+          fi
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+
+      - name: Create the tag
+        if: steps.tag.outputs.tag != '' && steps.tag.outputs.existing != 'true'
+        env:
+          TAG: ${{ steps.tag.outputs.tag }}
+        run: |
+          if ! gh api --method POST "repos/$GH_REPO/git/refs" \
+            -f ref="refs/tags/$TAG" -f sha="$GITHUB_SHA" >/dev/null; then
+            echo "cannot create $TAG; if it already exists, re-running takes the next version" >&2
+            exit 1
+          fi
+
+      # A tag made with this run's token starts no workflow of its own, so the release is
+      # started explicitly; workflow_dispatch is the event that token may trigger.
+      - name: Start the release
+        if: steps.tag.outputs.tag != ''
+        env:
+          TAG: ${{ steps.tag.outputs.tag }}
+        run: |
+          if [ "$(gh release view "$TAG" --json isDraft --jq .isDraft 2>/dev/null)" = false ]; then
+            echo "$TAG already has a published release"
+            exit 0
+          fi
+          gh workflow run release.yml --ref "$TAG"

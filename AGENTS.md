@@ -86,9 +86,8 @@ runs the fast pair only. A branch may hold broken work; a merge may not.
 
 ## Development process
 
-1. **Spec before code** for the two contracts an observer can test — the configuration file
-   and the installer's answer protocol — in `docs/specs/`. Everything else is spec-exempt and
-   says so.
+1. **Spec before code** for the contracts an observer can test — the configuration file, the
+   installer and the release — in `docs/specs/`. Everything else is spec-exempt and says so.
 2. **Test-first, step by step**: red → green → refactor. A test for a spec row cites it with
    a `spec:` anchor.
 3. **Work on a branch off `main`.** Never commit to `main`; never open or merge a pull

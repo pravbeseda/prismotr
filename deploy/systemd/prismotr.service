@@ -1,0 +1,26 @@
+# The panel, as a system service. Every path is fixed by docs/specs/installer.md; the listen
+# address is not passed, because the binary defaults to loopback and reads PRISMOTR_LISTEN
+# from the optional environment file below when a host needs another port.
+
+[Unit]
+Description=prismotr hosting panel
+After=network-online.target
+Wants=network-online.target
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+User=prismotr
+Group=prismotr
+EnvironmentFile=-/etc/prismotr/prismotr.env
+ExecStart=/usr/local/bin/prismotr --config /etc/prismotr/prismotr.yaml
+Restart=always
+RestartSec=5s
+
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+
+[Install]
+WantedBy=multi-user.target

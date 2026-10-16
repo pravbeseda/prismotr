@@ -1,0 +1,196 @@
+# Publishing rules from docs/specs/release.md. Only a tag releases — pushed, or named when the
+# run is started by hand or by auto-tag.yml — and a run either publishes five files or
+# publishes nothing. Every action is pinned by commit: the publish job signs what the build
+# job produces, so the chain is only as pinned as its least pinned link.
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+# Only the job that publishes may write, and only it sees the signing key.
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  guard:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.tag.outputs.version }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          fetch-depth: 0
+
+      # A run started by hand may name a branch, and a branch may be named like a tag.
+      - name: The ref is a tag
+        run: |
+          if [ "$GITHUB_REF_TYPE" != tag ]; then
+            echo "refusing $GITHUB_REF: only a tag releases" >&2
+            exit 1
+          fi
+
+      # The grammar itself is deploy/tag-version.sh, which the test suite covers.
+      - name: The tag names a version
+        id: tag
+        run: |
+          version=$(deploy/tag-version.sh "$GITHUB_REF_NAME")
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      # A tag is what makes the project sign, so what it may name is narrower than what a
+      # branch may hold. Releasing a hotfix means merging it first.
+      - name: The commit is on main
+        run: |
+          git fetch --no-tags origin +refs/heads/main:refs/remotes/origin/main
+          if ! git merge-base --is-ancestor "$GITHUB_SHA" origin/main; then
+            echo "refusing $GITHUB_SHA: it is not on main" >&2
+            exit 1
+          fi
+
+      # A fast check with a read-scoped token, which cannot see drafts: the refusal that
+      # actually binds is in the publish job, where the token can see them.
+      - name: No published release exists for this tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            echo "refusing $GITHUB_REF_NAME: it already has a release" >&2
+            exit 1
+          fi
+
+  build:
+    needs: guard
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
+        with:
+          go-version-file: go.mod
+
+      # A green boundary of main is not a promise that today's main is green, and a weaker
+      # suite here than the merge gate's would undercut re-running it.
+      - name: go test
+        run: go test -race ./...
+
+      - name: Build the static binaries
+        env:
+          VERSION: ${{ needs.guard.outputs.version }}
+        run: |
+          mkdir dist
+          for arch in amd64 arm64; do
+            CGO_ENABLED=0 GOOS=linux GOARCH="$arch" go build \
+              -ldflags "-X github.com/pravbeseda/prismotr/internal/version.Current=$VERSION" \
+              -o "dist/prismotr-$VERSION-linux-$arch" ./cmd/prismotr
+          done
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: linux
+          path: dist/
+          if-no-files-found: error
+          overwrite: true
+
+  publish:
+    needs: [guard, build]
+    runs-on: ubuntu-latest
+    # The signing key is a secret of this environment, not of the repository, and the
+    # environment's policy admits `v*` tags alone: no workflow on a branch can read it.
+    environment: release
+    permissions:
+      contents: write
+    env:
+      VERSION: ${{ needs.guard.outputs.version }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          path: dist/
+          merge-multiple: true
+
+      # The installer the release carries, packed reproducibly: the same commit must give the
+      # same bytes, or the digest in the manifest changes for no reason. It is laid out as
+      # deploy/ is, because install.sh finds its service definitions beside itself.
+      - name: Pack the installer
+        run: |
+          staging=$RUNNER_TEMP/prismotr-installer
+          mkdir -p "$staging"
+          cp deploy/install.sh "$staging/"
+          cp -r deploy/systemd "$staging/"
+          cp deploy/prismotr.env.example prismotr.yaml.example "$staging/"
+          tar -czf "dist/prismotr-installer-$VERSION.tar.gz" \
+            --sort=name --mtime=@0 --owner=0 --group=0 --numeric-owner \
+            -C "$RUNNER_TEMP" prismotr-installer
+
+      - name: The three assets are all here
+        run: |
+          cd dist
+          for asset in \
+            "prismotr-$VERSION-linux-amd64" \
+            "prismotr-$VERSION-linux-arm64" \
+            "prismotr-installer-$VERSION.tar.gz"; do
+            [ -f "$asset" ] || { echo "missing $asset" >&2; exit 1; }
+          done
+          [ "$(ls | wc -l)" -eq 3 ] || { echo "dist holds more than the three assets" >&2; ls >&2; exit 1; }
+
+      # A draft owns no tag, so one left by a run that died mid-upload would make the tag
+      # ambiguous and could be published in place of this run's.
+      - name: No release, published or draft, exists for this tag
+        run: |
+          if state=$(gh release view "$GITHUB_REF_NAME" --json isDraft --jq .isDraft 2>/dev/null); then
+            if [ "$state" = "true" ]; then
+              gh release delete "$GITHUB_REF_NAME" --yes
+            else
+              echo "refusing $GITHUB_REF_NAME: it already has a published release" >&2
+              exit 1
+            fi
+          fi
+
+      # The manifest is what the signature covers, so a name and a digest are signed
+      # together and an asset is genuine only under the name this release gave it.
+      - name: Write and sign the manifest
+        env:
+          SIGNING_KEY: ${{ secrets.RELEASE_SIGNING_KEY }}
+        run: |
+          umask 077
+          # $RUNNER_TEMP is outside the workspace, so nothing that collects files from there
+          # can collect the key.
+          printf '%s\n' "$SIGNING_KEY" > "$RUNNER_TEMP/signing-key.priv"
+          cd dist
+          sha256sum prismotr-* > SHA256SUMS
+          openssl dgst -sha256 -sign "$RUNNER_TEMP/signing-key.priv" -out SHA256SUMS.sig SHA256SUMS
+
+      - name: Forget the key
+        if: always()
+        run: rm -f "$RUNNER_TEMP/signing-key.priv"
+
+      # Verified with the key committed in the repository, never with one derived from the
+      # secret: a rotated secret whose public half was not committed must fail here rather
+      # than produce a release no host can verify.
+      - name: Verify every asset as a host would
+        run: |
+          for asset in dist/prismotr-*; do
+            deploy/verify-release.sh --key deploy/release-signing-key.pub "$asset"
+          done
+
+      # Created as a draft and published in one call at the end, once all five files are
+      # attached: no client sees a release holding half of them.
+      - name: Publish the release
+        run: |
+          gh release create "$GITHUB_REF_NAME" \
+            --draft --title "$GITHUB_REF_NAME" --generate-notes \
+            dist/*
+          attached=$(gh release view "$GITHUB_REF_NAME" --json assets --jq '.assets | length')
+          [ "$attached" -eq 5 ] || { echo "the draft holds $attached assets, not 5" >&2; exit 1; }
+          # make_latest=legacy rather than gh's --latest: runs for two tags pushed together
+          # can finish in either order, and "latest" must be the higher version rather than
+          # whichever run got here last. GitHub does that comparison itself.
+          id=$(gh release view "$GITHUB_REF_NAME" --json databaseId --jq .databaseId)
+          gh api --method PATCH "repos/$GITHUB_REPOSITORY/releases/$id" \
+            -F draft=false -f make_latest=legacy --jq .html_url
