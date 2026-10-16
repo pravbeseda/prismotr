@@ -1,0 +1,20 @@
+# Configuration and secrets — only *.example files are versioned; the real files live on
+# the host under /etc/prismotr.
+prismotr.yaml
+prismotr.yml
+*.env
+.env*
+*.token
+*.pem
+*.key
+*.priv
+
+# Build output
+bin/
+dist/
+
+# Editors and OS
+.DS_Store
+.idea/
+.vscode/
+.obsidian/

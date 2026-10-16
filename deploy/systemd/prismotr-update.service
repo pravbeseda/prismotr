@@ -1,0 +1,13 @@
+# Keeps the panel on the version /etc/prismotr/target names, by running the kept install
+# script as docs/specs/installer.md describes. Started by its timer alone, so it has no
+# [Install] section; it is placed by provisioning, never by a release.
+
+[Unit]
+Description=prismotr update
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/libexec/prismotr/prismotr-install.sh --follow-target
+PrivateTmp=true

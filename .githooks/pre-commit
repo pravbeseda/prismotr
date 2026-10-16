@@ -1,0 +1,51 @@
+#!/bin/sh
+# Enforces the public-repository rules of AGENTS.md.
+# Enabled by: git config core.hooksPath .githooks
+set -e
+
+if ! command -v gitleaks >/dev/null 2>&1; then
+	echo "pre-commit: gitleaks is not installed." >&2
+	echo "  macOS:  brew install gitleaks" >&2
+	echo "  Debian: see https://github.com/gitleaks/gitleaks#installing" >&2
+	exit 1
+fi
+
+staged=$(git diff --cached --name-only --diff-filter=ACMR)
+
+# Files that must never be committed, even with 'git add -f': a real configuration, an
+# environment file or key material. Only *.example files are versioned.
+forbidden=$(echo "$staged" | grep -E \
+	'(^|/)prismotr\.ya?ml$|(^|/)\.env|\.(env|pem|key|priv|token)$' || true)
+if [ -n "$forbidden" ]; then
+	echo "pre-commit: these files hold configuration or secrets:" >&2
+	echo "$forbidden" | sed 's/^/  /' >&2
+	echo "They belong on the host, not in a public repository (AGENTS.md)." >&2
+	exit 1
+fi
+
+gitleaks git --staged --redact --no-banner
+
+# The fast pair of the quality gates; the slow pair runs in CI.
+gofiles=$(echo "$staged" | grep -E '\.go$' || true)
+if [ -n "$gofiles" ]; then
+	if ! command -v go >/dev/null 2>&1; then
+		echo "pre-commit: Go files are staged but go is not installed." >&2
+		exit 1
+	fi
+	# One staged path per line. Split on newlines only, so a path holding a space stays one
+	# argument, and turn globbing off, so one holding a bracket is not expanded.
+	oldifs=$IFS
+	IFS='
+'
+	set -f
+	# shellcheck disable=SC2086 # deliberate: the IFS above is what makes this split by line
+	unformatted=$(gofmt -l $gofiles)
+	set +f
+	IFS=$oldifs
+	if [ -n "$unformatted" ]; then
+		echo "pre-commit: not gofmt-ed:" >&2
+		echo "$unformatted" | sed 's/^/  /' >&2
+		exit 1
+	fi
+	go vet ./...
+fi
