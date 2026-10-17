@@ -141,7 +141,7 @@ func (v Vitals) memory() Row {
 	available = min(available, total) // lxcfs can report more available than total
 	detail := fmt.Sprintf("%s available of %s", size(available), size(total))
 	if swap := bytes["SwapTotal"]; swap > 0 {
-		detail += fmt.Sprintf(" · swap %d%% of %s", (swap-bytes["SwapFree"])*100/swap, size(swap))
+		detail += fmt.Sprintf(" · swap %d%% of %s", (swap-min(bytes["SwapFree"], swap))*100/swap, size(swap))
 	} else {
 		detail += " · no swap"
 	}
