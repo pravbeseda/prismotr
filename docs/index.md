@@ -8,6 +8,7 @@ The per-host hosting panel. This file is the entry point to every document in th
 |---|---|
 | [../AGENTS.md](../AGENTS.md) | Agent instructions: commands, the boundary with ansible-hosts, the public-repository rules, the process |
 | [plans/v1-read-only-panel.md](plans/v1-read-only-panel.md) | The v1 plan — skeleton, release pipeline, status cards — derived from the contract in ansible-hosts, with its open questions and their decisions |
+| [plans/v2-sidebar-panel.md](plans/v2-sidebar-panel.md) | The v2 plan — sidebar shell, vital-signs overview, sites opened in a frame beside a rail |
 
 ## Architecture decisions
 
