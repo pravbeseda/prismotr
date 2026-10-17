@@ -29,7 +29,8 @@ the sidebar is a drawer and a site opens in a new tab.
   the site itself with `target="_blank"`, and a media query at 720px shows one.
 - **Dark only**, the mockup's palette. Fonts (Space Grotesk, JetBrains Mono, both OFL) are
   embedded in the binary and served under `<base_path>/static/`: the panel makes no request
-  outside the host.
+  outside the host. One variable Latin `woff2` per family, unmodified as published (53 KB
+  together), with the families' `OFL.txt` beside them, as the licence requires.
 - **Cards carry state.** A row gains a state (`ok`, `warn`, `err`) and an optional used
   fraction for a meter; the overview's tiles, the sidebar's dots and the *Needs attention*
   block are all derived from row states, never computed in the template. Thresholds are
