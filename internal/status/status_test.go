@@ -146,6 +146,17 @@ func TestMemoryWithoutSwapSaysSo(t *testing.T) {
 	}
 }
 
+// lxcfs can report more available than total; the tile reads none used, not an overflow.
+func TestMoreAvailableThanTotalIsNoneUsed(t *testing.T) {
+	proc := fakeProc(t)
+	writeProc(t, proc, "meminfo", "MemTotal: 8388608 kB\nMemAvailable: 9437184 kB\nSwapTotal: 0 kB\n")
+	card, _ := vitals(proc).Read(context.Background())
+	got := row(t, card, "Memory")
+	if got.Value != "0%" || got.Used != 0 || got.State != status.OK {
+		t.Errorf("Memory = %q, used %v, state %v; want 0%%, 0, ok", got.Value, got.Used, got.State)
+	}
+}
+
 // Memory warns from 80% used and errs from 90%, as a disk does.
 func TestAMemoryStateFollowsItsUsage(t *testing.T) {
 	tests := []struct {

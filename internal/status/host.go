@@ -138,6 +138,7 @@ func (v Vitals) memory() Row {
 	if !hasTotal || !hasAvailable || total == 0 {
 		return failed("Memory", errors.New("meminfo lacks MemTotal or MemAvailable"))
 	}
+	available = min(available, total) // lxcfs can report more available than total
 	detail := fmt.Sprintf("%s available of %s", size(available), size(total))
 	if swap := bytes["SwapTotal"]; swap > 0 {
 		detail += fmt.Sprintf(" · swap %d%% of %s", (swap-bytes["SwapFree"])*100/swap, size(swap))
