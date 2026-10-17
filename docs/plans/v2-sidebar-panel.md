@@ -87,9 +87,9 @@ Each step is test-first and ends green on CI.
 
 6. **End-to-end run.**
    A release built from the branch on the Debian 13 container of v1's step 11.
-   → verify: nginx passes `<base_path>/site/…` and `<base_path>/static/…` to the daemon (v1
-   served `<base_path>` alone; an exact-match location there is a contract change in
-   ansible-hosts); the default server sends `X-Frame-Options SAMEORIGIN` (the hand-off
+   → verify: nginx passes `<base_path>/site/…` and `<base_path>/static/…` to the daemon (the
+   prefix location in ansible-hosts' `prismotr-location.conf.j2` already does); the default
+   server sends `X-Frame-Options SAMEORIGIN` (the hand-off
    above); every tile shows live values; Munin opens in the frame; a vhost opens in a new tab.
 
 ## Out of scope
