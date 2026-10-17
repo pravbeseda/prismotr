@@ -11,11 +11,27 @@ import (
 	"github.com/pravbeseda/prismotr/internal/config"
 )
 
+// State is how a row or a card is doing. The order is the severity: the worse of two states
+// is the greater.
+type State int
+
+// The states, best first.
+const (
+	OK State = iota
+	Warn
+	Err
+)
+
+// String is the state's name, which the template uses as a CSS class.
+func (s State) String() string { return [...]string{"ok", "warn", "err"}[s] }
+
 // Row is one line of a card: a label with a value, or a label with lines under it.
 type Row struct {
 	Label string
 	Value string
 	Lines []string
+	State State
+	Used  float64 // the used fraction a meter shows, 0 to 1; zero shows no meter
 }
 
 // Card is what the page renders for one source.
@@ -25,6 +41,41 @@ type Card struct {
 	ReadAt time.Time
 	Rows   []Row
 	Err    string
+}
+
+// State is the card's worst row's, or Err when its source failed.
+func (c Card) State() State {
+	if c.Err != "" {
+		return Err
+	}
+	worst := OK
+	for _, r := range c.Rows {
+		worst = max(worst, r.State)
+	}
+	return worst
+}
+
+// Notice is a row that is not OK, with the title of the card it is in.
+type Notice struct {
+	Card string
+	Row  Row
+}
+
+// NeedsAttention is every row that is not OK, in page order; a source that failed is an Err
+// row of its own, labelled with the source and carrying the error.
+func NeedsAttention(cards []Card) []Notice {
+	var notices []Notice
+	for _, c := range cards {
+		if c.Err != "" {
+			notices = append(notices, Notice{Card: c.Title, Row: Row{Label: c.Source, Value: c.Err, State: Err}})
+		}
+		for _, r := range c.Rows {
+			if r.State != OK {
+				notices = append(notices, Notice{Card: c.Title, Row: r})
+			}
+		}
+	}
+	return notices
 }
 
 // Source reads one card. Read returns the card it managed to fill and the error that

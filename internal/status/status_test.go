@@ -471,3 +471,220 @@ func TestSourcesFollowTheSitesGiven(t *testing.T) {
 		t.Errorf("the third source is %#v, want shop's Vhost", sources[2])
 	}
 }
+
+// ---- row state and meters (v2 plan step 1) ----
+
+func row(t *testing.T, c status.Card, label string) status.Row {
+	t.Helper()
+	for _, r := range c.Rows {
+		if r.Label == label {
+			return r
+		}
+	}
+	t.Fatalf("no row %q in %+v", label, c.Rows)
+	return status.Row{}
+}
+
+// A disk warns from 80% used and errs from 90%, and carries its used fraction for the meter.
+func TestADiskStateFollowsItsUsage(t *testing.T) {
+	const gib = 1 << 30
+	tests := []struct {
+		freeGiB uint64
+		want    status.State
+	}{
+		{21, status.OK},
+		{20, status.Warn},
+		{11, status.Warn},
+		{10, status.Err},
+	}
+	for _, test := range tests {
+		h := hostSource(t, fakeProc(t), fakeSystemctl(t, "nginx"), "")
+		h.Statfs = func(string) (total, free uint64, err error) { return 100 * gib, test.freeGiB * gib, nil }
+		card, err := h.Read(context.Background())
+		if err != nil {
+			t.Fatalf("Read: %v", err)
+		}
+		disk := row(t, card, "Disk /")
+		if disk.State != test.want {
+			t.Errorf("%d GiB free of 100: state %v, want %v", test.freeGiB, disk.State, test.want)
+		}
+		if want := float64(100-test.freeGiB) / 100; disk.Used != want {
+			t.Errorf("%d GiB free of 100: used %v, want %v", test.freeGiB, disk.Used, want)
+		}
+	}
+}
+
+func TestAnUnreadableDiskIsAnError(t *testing.T) {
+	h := hostSource(t, fakeProc(t), fakeSystemctl(t, "nginx"), "")
+	h.Statfs = func(string) (total, free uint64, err error) { return 0, 0, errors.New("stale handle") }
+	card, _ := h.Read(context.Background())
+	if got := row(t, card, "Disk /").State; got != status.Err {
+		t.Errorf("state %v, want err", got)
+	}
+
+	proc := fakeProc(t)
+	if err := os.Remove(filepath.Join(proc, "mounts")); err != nil {
+		t.Fatal(err)
+	}
+	h = hostSource(t, proc, fakeSystemctl(t, "nginx"), "")
+	card, _ = h.Read(context.Background())
+	if got := row(t, card, "Disks").State; got != status.Err {
+		t.Errorf("without /proc/mounts: state %v, want err", got)
+	}
+}
+
+func TestAUnitThatIsNotActiveIsAnError(t *testing.T) {
+	sites := []config.Site{{Name: "a", Kind: config.Vhost, Domain: "a.example.com", PHPFPMVersions: []string{"8.4"}}}
+	h := hostSource(t, fakeProc(t), fakeSystemctl(t, "nginx"), "", sites...)
+	card, _ := h.Read(context.Background())
+	if got := row(t, card, "nginx").State; got != status.OK {
+		t.Errorf("active nginx: state %v, want ok", got)
+	}
+	if got := row(t, card, "php8.4-fpm").State; got != status.Err {
+		t.Errorf("inactive php8.4-fpm: state %v, want err", got)
+	}
+}
+
+// A certificate warns under 21 days left and errs under 7; one that cannot be read errs.
+func TestACertificateStateFollowsTheDaysLeft(t *testing.T) {
+	tests := []struct {
+		days int
+		want status.State
+	}{
+		{21, status.OK},
+		{20, status.Warn},
+		{7, status.Warn},
+		{6, status.Err},
+		{-1, status.Err},
+	}
+	for _, test := range tests {
+		live := t.TempDir()
+		writeCertificate(t, live, "shop.example.com", now.Add(time.Duration(test.days)*24*time.Hour+time.Hour))
+		v := status.Vhost{
+			Site:    config.Site{Name: "shop", Kind: config.Vhost, Domain: "shop.example.com", CertDomain: "shop.example.com"},
+			LiveDir: live,
+			Now:     func() time.Time { return now },
+		}
+		card, _ := v.Read(context.Background())
+		if got := row(t, card, "Certificate").State; got != test.want {
+			t.Errorf("%d days left: state %v, want %v", test.days, got, test.want)
+		}
+	}
+
+	v := status.Vhost{
+		Site:    config.Site{Name: "shop", Kind: config.Vhost, Domain: "shop.example.com", CertDomain: "shop.example.com"},
+		LiveDir: t.TempDir(),
+	}
+	card, _ := v.Read(context.Background())
+	if got := row(t, card, "Certificate").State; got != status.Err {
+		t.Errorf("a missing certificate: state %v, want err", got)
+	}
+}
+
+func TestAnUnreadableLogWarns(t *testing.T) {
+	logDir := t.TempDir()
+	readable := filepath.Join(logDir, "access.log")
+	if err := os.WriteFile(readable, []byte("a line\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	missing := filepath.Join(logDir, "error.log")
+	v := status.Vhost{Site: config.Site{Name: "shop", Kind: config.Vhost, Domain: "shop.example.com", Logs: []string{readable, missing}}}
+	card, _ := v.Read(context.Background())
+	if got := row(t, card, readable).State; got != status.OK {
+		t.Errorf("a readable log: state %v, want ok", got)
+	}
+	if got := row(t, card, missing).State; got != status.Warn {
+		t.Errorf("a missing log: state %v, want warn", got)
+	}
+}
+
+// Any answer is a reachable location — 401 is basic auth doing its job — except a 5xx, which
+// is nginx saying the backend behind it is down; no answer at all is an error too.
+func TestALocationStateFollowsItsProbe(t *testing.T) {
+	site := config.Site{Name: "munin", Kind: config.Location, Path: "/munin"}
+	tests := []struct {
+		name   string
+		status int // 0: nothing listens
+		want   status.State
+	}{
+		{"200", http.StatusOK, status.OK},
+		{"401", http.StatusUnauthorized, status.OK},
+		{"499", 499, status.OK},
+		{"500", http.StatusInternalServerError, status.Err},
+		{"502", http.StatusBadGateway, status.Err},
+		{"nothing listens", 0, status.Err},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			l := status.Location{Site: site, TLSPort: closedPort(t), PlainPort: closedPort(t)}
+			if test.status != 0 {
+				s := tlsServer(t, test.status)
+				defer s.Close()
+				l.TLSPort = port(t, s)
+			}
+			card, _ := l.Read(context.Background())
+			if got := row(t, card, "Loopback").State; got != test.want {
+				t.Errorf("state %v, want %v", got, test.want)
+			}
+		})
+	}
+}
+
+// A card is as bad as its worst row, and a source that failed is an error whatever it read.
+func TestACardIsAsBadAsItsWorstRow(t *testing.T) {
+	tests := []struct {
+		name string
+		card status.Card
+		want status.State
+	}{
+		{"no rows", status.Card{}, status.OK},
+		{"all ok", status.Card{Rows: []status.Row{{State: status.OK}, {State: status.OK}}}, status.OK},
+		{"one warn", status.Card{Rows: []status.Row{{State: status.OK}, {State: status.Warn}}}, status.Warn},
+		{"warn and err", status.Card{Rows: []status.Row{{State: status.Err}, {State: status.Warn}}}, status.Err},
+		{"a failed source", status.Card{Err: "the well is dry", Rows: []status.Row{{State: status.OK}}}, status.Err},
+	}
+	for _, test := range tests {
+		if got := test.card.State(); got != test.want {
+			t.Errorf("%s: state %v, want %v", test.name, got, test.want)
+		}
+	}
+}
+
+// Needs attention lists every row that is not ok and every failed source, in page order.
+func TestNeedsAttentionListsWhatIsNotOK(t *testing.T) {
+	cards := []status.Card{
+		{Title: "Host", Rows: []status.Row{
+			{Label: "Uptime", Value: "1d"},
+			{Label: "Disk /", Value: "85% used", State: status.Warn},
+			{Label: "nginx", Value: "failed", State: status.Err},
+		}},
+		{Title: "Munin", Rows: []status.Row{{Label: "Loopback", Value: "answers (200)"}}},
+		{Title: "Broken", Source: "a well", Err: "the well is dry"},
+	}
+	got := status.NeedsAttention(cards)
+	want := []status.Notice{
+		{Card: "Host", Row: status.Row{Label: "Disk /", Value: "85% used", State: status.Warn}},
+		{Card: "Host", Row: status.Row{Label: "nginx", Value: "failed", State: status.Err}},
+		{Card: "Broken", Row: status.Row{Label: "a well", Value: "the well is dry", State: status.Err}},
+	}
+	if len(got) != len(want) {
+		t.Fatalf("got %+v, want %+v", got, want)
+	}
+	for i := range want {
+		if got[i].Card != want[i].Card || got[i].Row.Label != want[i].Row.Label || got[i].Row.Value != want[i].Row.Value || got[i].Row.State != want[i].Row.State {
+			t.Errorf("notice %d = %+v, want %+v", i, got[i], want[i])
+		}
+	}
+	if none := status.NeedsAttention(cards[1:2]); len(none) != 0 {
+		t.Errorf("a healthy page needs attention: %+v", none)
+	}
+}
+
+// The template prints a state as its CSS class.
+func TestAStatePrintsAsItsName(t *testing.T) {
+	for state, want := range map[status.State]string{status.OK: "ok", status.Warn: "warn", status.Err: "err"} {
+		if got := state.String(); got != want {
+			t.Errorf("%d prints %q, want %q", state, got, want)
+		}
+	}
+}

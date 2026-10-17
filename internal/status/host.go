@@ -37,6 +37,17 @@ var diskFilesystems = map[string]bool{
 	"vfat": true, "f2fs": true,
 }
 
+// usage is the state of a used fraction: a disk or memory warns from 80% and errs from 90%.
+func usage(used float64) State {
+	switch {
+	case used >= 0.9:
+		return Err
+	case used >= 0.8:
+		return Warn
+	}
+	return OK
+}
+
 func (h Host) Read(ctx context.Context) (Card, error) {
 	card := Card{Title: "Host"}
 	uptime, err := h.uptime()
@@ -50,7 +61,12 @@ func (h Host) Read(ctx context.Context) (Card, error) {
 	card.Rows = append(card.Rows, Row{Label: "Uptime", Value: uptime}, Row{Label: "Load", Value: load})
 	card.Rows = append(card.Rows, h.disks()...)
 	for _, unit := range h.units() {
-		card.Rows = append(card.Rows, Row{Label: unit, Value: h.isActive(ctx, unit)})
+		answer := h.isActive(ctx, unit)
+		state := OK
+		if answer != "active" {
+			state = Err
+		}
+		card.Rows = append(card.Rows, Row{Label: unit, Value: answer, State: state})
 	}
 	if connections, ok := h.nginxStatus(ctx); ok {
 		card.Rows = append(card.Rows, Row{Label: "nginx connections", Value: connections})
@@ -96,7 +112,7 @@ func (h Host) loadavg() (string, error) {
 func (h Host) disks() []Row {
 	body, err := h.proc("mounts")
 	if err != nil {
-		return []Row{{Label: "Disks", Value: err.Error()}}
+		return []Row{{Label: "Disks", Value: err.Error(), State: Err}}
 	}
 	statfs := h.Statfs
 	if statfs == nil {
@@ -114,11 +130,12 @@ func (h Host) disks() []Row {
 		label := "Disk " + fields[1]
 		total, free, err := statfs(fields[1])
 		if err != nil || total == 0 {
-			rows = append(rows, Row{Label: label, Value: fmt.Sprintf("unreadable: %v", err)})
+			rows = append(rows, Row{Label: label, Value: fmt.Sprintf("unreadable: %v", err), State: Err})
 			continue
 		}
-		used := (total - free) * 100 / total
-		rows = append(rows, Row{Label: label, Value: fmt.Sprintf("%d%% used, %s free of %s", used, size(free), size(total))})
+		used := float64(total-free) / float64(total)
+		value := fmt.Sprintf("%d%% used, %s free of %s", (total-free)*100/total, size(free), size(total))
+		rows = append(rows, Row{Label: label, Value: value, State: usage(used), Used: used})
 	}
 	return rows
 }

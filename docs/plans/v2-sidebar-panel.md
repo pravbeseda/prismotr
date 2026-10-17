@@ -46,7 +46,8 @@ tab.
   product defaults: disk and memory `warn` at 80%, `err` at 90%; load `warn` when the
   5-minute average is above the core count (the tile shows that average large, the 1- and
   15-minute ones small); certificate `warn` under 21 days, `err` under 7; an inactive
-  unit, a failed probe or a source error `err`; an unreadable log `warn`.
+  unit, a failed probe (no answer, or a 5xx) or a source error `err`; an unreadable log
+  `warn`.
 - **Status pages stay spec-exempt**, as v1's cards were: what an observer can test here is
   the configuration, and it does not change.
 
