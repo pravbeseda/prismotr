@@ -5,6 +5,7 @@ package status
 
 import (
 	"context"
+	"slices"
 	"sync"
 	"time"
 
@@ -27,11 +28,12 @@ func (s State) String() string { return [...]string{"ok", "warn", "err"}[s] }
 
 // Row is one line of a card: a label with a value, or a label with lines under it.
 type Row struct {
-	Label string
-	Value string
-	Lines []string
-	State State
-	Used  float64 // the used fraction a meter shows, 0 to 1; zero shows no meter
+	Label  string
+	Value  string
+	Detail string // a smaller line beside the value
+	Lines  []string
+	State  State
+	Used   float64 // the used fraction a meter shows, 0 to 1; zero shows no meter
 }
 
 // Card is what the page renders for one source.
@@ -40,6 +42,7 @@ type Card struct {
 	Source string
 	ReadAt time.Time
 	Rows   []Row
+	Logs   []Row // the tails of a site's logs, which the page folds away
 	Err    string
 }
 
@@ -49,7 +52,7 @@ func (c Card) State() State {
 		return Err
 	}
 	worst := OK
-	for _, r := range c.Rows {
+	for _, r := range slices.Concat(c.Rows, c.Logs) {
 		worst = max(worst, r.State)
 	}
 	return worst
@@ -69,7 +72,7 @@ func NeedsAttention(cards []Card) []Notice {
 		if c.Err != "" {
 			notices = append(notices, Notice{Card: c.Title, Row: Row{Label: c.Source, Value: c.Err, State: Err}})
 		}
-		for _, r := range c.Rows {
+		for _, r := range slices.Concat(c.Rows, c.Logs) {
 			if r.State != OK {
 				notices = append(notices, Notice{Card: c.Title, Row: r})
 			}
@@ -146,9 +149,14 @@ var Production = Defaults{
 	PlainPort: "80",
 }
 
-// Sources is the host card followed by one card per site, in the order the sites are given.
+// Sources are the host's vitals, services and disks, then one card per site, in the order
+// the sites are given.
 func Sources(cfg *config.Config, sites []config.Site, d Defaults) []Source {
-	sources := []Source{Host{ProcRoot: d.ProcRoot, StatusURL: d.StatusURL, Sites: sites}}
+	sources := []Source{
+		Vitals{ProcRoot: d.ProcRoot},
+		Services{StatusURL: d.StatusURL, Sites: sites},
+		Disks{ProcRoot: d.ProcRoot},
+	}
 	for _, s := range sites {
 		if s.Kind == config.Vhost {
 			sources = append(sources, Vhost{Site: s, LiveDir: d.LiveDir, TailLines: d.TailLines})
@@ -157,4 +165,49 @@ func Sources(cfg *config.Config, sites []config.Site, d Defaults) []Source {
 		}
 	}
 	return sources
+}
+
+// Page is what the panel renders: the host's vitals, services and disks, and one card per
+// site in the order the sites were given.
+type Page struct {
+	ReadAt                  time.Time
+	Vitals, Services, Disks Card
+	Sites                   []Card
+}
+
+// ReadPage collects every source of a configuration into a page.
+func ReadPage(ctx context.Context, cfg *config.Config, sites []config.Site, d Defaults, opts Options) Page {
+	if opts.Now == nil {
+		opts.Now = time.Now
+	}
+	cards := Collect(ctx, Sources(cfg, sites, d), opts)
+	return Page{ReadAt: opts.Now(), Vitals: cards[0], Services: cards[1], Disks: cards[2], Sites: cards[3:]}
+}
+
+// Cards are all of the page's cards, the host's first.
+func (p Page) Cards() []Card {
+	return append([]Card{p.Vitals, p.Services, p.Disks}, p.Sites...)
+}
+
+// Tiles are the overview's vital signs: the vitals' rows, then the fullest disk.
+func (p Page) Tiles() []Row {
+	return append(slices.Clone(p.Vitals.Rows), p.fullestDisk())
+}
+
+func (p Page) fullestDisk() Row {
+	if p.Disks.Err != "" {
+		return Row{Label: "Fullest disk", Value: p.Disks.Err, State: Err}
+	}
+	var fullest *Row
+	for i, r := range p.Disks.Rows {
+		if r.Used > 0 && (fullest == nil || r.Used > fullest.Used) {
+			fullest = &p.Disks.Rows[i]
+		}
+	}
+	if fullest == nil {
+		return Row{Label: "Fullest disk", Value: "none readable", State: p.Disks.State()}
+	}
+	tile := *fullest
+	tile.Label = "Fullest disk · " + fullest.Label
+	return tile
 }

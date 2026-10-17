@@ -46,10 +46,10 @@ func (v Vhost) Read(_ context.Context) (Card, error) {
 	for _, log := range v.Site.Logs {
 		tail, err := tailLines(log, lines)
 		if err != nil {
-			card.Rows = append(card.Rows, Row{Label: log, Value: err.Error(), State: Warn})
+			card.Logs = append(card.Logs, Row{Label: log, Value: err.Error(), State: Warn})
 			continue
 		}
-		card.Rows = append(card.Rows, Row{Label: log, Lines: tail})
+		card.Logs = append(card.Logs, Row{Label: log, Lines: tail})
 	}
 	return card, nil
 }

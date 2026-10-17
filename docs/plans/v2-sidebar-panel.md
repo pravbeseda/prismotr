@@ -23,6 +23,8 @@ tab.
   → hand-off: the HTTPS default server in ansible-hosts
   (`sites/prismotr/templates/nginx-ssl-default.conf.j2`) sends `X-Frame-Options DENY`, which
   refuses even a same-origin frame; it becomes `SAMEORIGIN` before step 6.
+  → hand-off, found in step 6: phpMyAdmin sends its own `X-Frame-Options DENY` until the
+  mysql site's `config.inc.php` sets `AllowThirdPartyFraming` to `'sameorigin'`.
 - **A frame is a route, not a script**: `<base_path>/site/<name>` renders the shell with the
   rail and an `<iframe>` pointing at a location's path. A reload or a copied link keeps the
   site open. An unknown name or a vhost's name is `404`; with duplicate names the first in
@@ -38,7 +40,7 @@ tab.
   vhost's entry is one link with `target="_blank"` at every width.
 - **Dark only**, the mockup's palette. Fonts (Space Grotesk, JetBrains Mono, both OFL) are
   embedded in the binary and served under `<base_path>/static/`: the panel makes no request
-  outside the host. One variable Latin `woff2` per family, unmodified as published (53 KB
+  outside the host. One variable Latin `woff2` per family, unmodified as published (62 KB
   together), with the families' `OFL.txt` beside them, as the licence requires.
 - **Cards carry state.** A row gains a state (`ok`, `warn`, `err`) and an optional used
   fraction for a meter; the overview's tiles, the sidebar's dots and the *Needs attention*
@@ -61,6 +63,9 @@ Each step is test-first and ends green on CI.
    attention. → verify: one test per threshold edge; a failing source yields `err`.
 
 2. **Memory and cores in the host card.**
+   The host card splits into three sources, so the overview's sections each name their own
+   source and fail alone: Vitals (`/proc`), Services (systemd, nginx's stub status) and
+   Disks (`/proc/mounts`, `statfs`). A row gains a `Detail`, the small line beside its value.
    `MemTotal`, `MemAvailable`, `SwapTotal`, `SwapFree` from `/proc/meminfo`; the core count
    from the `processor` lines of `/proc/cpuinfo`; load compared against it; uptime also as
    the boot time. → verify: fake `/proc` files, including a missing `/proc/meminfo`, which

@@ -91,8 +91,8 @@ func run(ctx context.Context, args []string, out io.Writer, env func(string) (st
 		}
 	}()
 
-	collect := func(ctx context.Context, cfg *config.Config, sites []config.Site) []status.Card {
-		return status.Collect(ctx, status.Sources(cfg, sites, status.Production), status.Options{})
+	collect := func(ctx context.Context, cfg *config.Config, sites []config.Site) status.Page {
+		return status.ReadPage(ctx, cfg, sites, status.Production, status.Options{})
 	}
 	server := &http.Server{
 		Handler:           web.New(cfg.Current, version.Current, collect),
