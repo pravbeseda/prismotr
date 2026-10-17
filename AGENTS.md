@@ -19,8 +19,8 @@ go run ./cmd/prismotr --config prismotr.yaml.example --listen 127.0.0.1:8100
 kill -HUP <pid>                  # reload the configuration file
 ```
 
-**Where the project stands is not written here.** The plan in
-[docs/plans/v1-read-only-panel.md](docs/plans/v1-read-only-panel.md) owns that, together
+**Where the project stands is not written here.** The newest plan in `docs/plans/` owns
+that — now [docs/plans/v2-sidebar-panel.md](docs/plans/v2-sidebar-panel.md) — together
 with the checklist in the open pull request.
 
 ## Start here
