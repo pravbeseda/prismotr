@@ -30,44 +30,49 @@ func (Location) Name() string { return "a request over loopback" }
 func (l Location) Read(ctx context.Context) (Card, error) {
 	card := Card{Title: cmp.Or(l.Site.Title, l.Site.Name)}
 	card.Rows = append(card.Rows, Row{Label: "Link", Value: l.Site.Path})
-	card.Rows = append(card.Rows, Row{Label: "Loopback", Value: l.probe(ctx)})
+	answer, state := l.probe(ctx)
+	card.Rows = append(card.Rows, Row{Label: "Loopback", Value: answer, State: state})
 	return card, nil
 }
 
-// probe is bounded by the per-source timeout Collect sets, like every other source.
-func (l Location) probe(ctx context.Context) string {
+// probe is bounded by the per-source timeout Collect sets, like every other source. Any
+// answer is a reachable location — a 401 is basic auth doing its job — except a 5xx, nginx
+// saying the backend behind it is down.
+func (l Location) probe(ctx context.Context) (string, State) {
 	tlsClient := &http.Client{
 		Transport:     &http.Transport{TLSClientConfig: &tls.Config{ServerName: l.Domain, InsecureSkipVerify: true}}, //nolint:gosec // reachability, not identity: loopback, and nginx holds the real check
 		CheckRedirect: noRedirect,
 	}
-	answer, err := l.request(ctx, tlsClient, "https", cmp.Or(l.TLSPort, "443"))
-	if err == nil {
-		return answer
+	port := cmp.Or(l.TLSPort, "443")
+	code, err := l.request(ctx, tlsClient, "https", port)
+	if err != nil && refused(err) {
+		plainClient := &http.Client{Transport: &http.Transport{}, CheckRedirect: noRedirect}
+		port = cmp.Or(l.PlainPort, "80")
+		code, err = l.request(ctx, plainClient, "http", port)
 	}
-	if !refused(err) {
-		return "does not answer: " + err.Error()
-	}
-	plainClient := &http.Client{Transport: &http.Transport{}, CheckRedirect: noRedirect}
-	answer, err = l.request(ctx, plainClient, "http", cmp.Or(l.PlainPort, "80"))
 	if err != nil {
-		return "does not answer: " + err.Error()
+		return "does not answer: " + err.Error(), Err
 	}
-	return answer
+	answer := fmt.Sprintf("answers (%d) on port %s", code, port)
+	if code >= http.StatusInternalServerError {
+		return answer, Err
+	}
+	return answer, OK
 }
 
-func (l Location) request(ctx context.Context, client *http.Client, scheme, port string) (string, error) {
+func (l Location) request(ctx context.Context, client *http.Client, scheme, port string) (int, error) {
 	url := fmt.Sprintf("%s://%s%s", scheme, net.JoinHostPort("127.0.0.1", port), l.Site.Path)
 	request, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
-		return "", err
+		return 0, err
 	}
 	request.Host = l.Domain
 	response, err := client.Do(request)
 	if err != nil {
-		return "", err
+		return 0, err
 	}
 	_ = response.Body.Close()
-	return fmt.Sprintf("answers (%d) on port %s", response.StatusCode, port), nil
+	return response.StatusCode, nil
 }
 
 func noRedirect(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }

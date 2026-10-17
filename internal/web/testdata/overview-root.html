@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>host-a.example.com - Admin Panel</title>
+    <link rel="stylesheet" href="/static/panel.css">
+</head>
+<body>
+<div class="app">
+    <input type="checkbox" id="drawer" class="drawer-toggle" aria-label="Show the menu">
+    <header class="topbar">
+        <label class="icon-btn" for="drawer" title="Show the menu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></label>
+        <span class="host">host-a</span>
+        <span class="count err">3</span>
+    </header>
+    <aside class="side" aria-label="Panel navigation">
+        <div class="brand">
+            <div>
+                <div class="eyebrow">host</div>
+                <div class="host">host-a</div>
+                <div class="domain">host-a.example.com</div>
+            </div>
+            <label class="icon-btn close-drawer" for="drawer" title="Close the menu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></label>
+        </div>
+        <nav class="nav" aria-label="Panel">
+            <a class="item" href="/" aria-current="page" title="Overview">
+                <span class="mono"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="7" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/><rect x="13" y="13" width="7" height="7" rx="1.5"/></svg></span>
+                <span class="label">Overview</span>
+                <span class="count err">3</span>
+            </a>
+            <div class="section-title">Sites</div>
+            <a class="item wide" href="/site/munin" title="Munin"><span class="mono">Mu<i class="dot err"></i></span><span class="label">Munin<small>/munin</small></span></a>
+            <a class="item narrow" href="/munin" target="_blank" rel="noopener" title="Munin"><span class="mono">Mu<i class="dot err"></i></span><span class="label">Munin<small>/munin</small></span></a>
+            <a class="item" href="//shop.example.com/" target="_blank" rel="noopener" title="shop.example.com"><span class="mono">sh<i class="dot ok"></i></span><span class="label">shop.example.com<small>vhost · opens in a new tab</small></span></a>
+            <div class="section-title">Links</div>
+            <a class="item" href="https://hub.example.com/nodes/host-a" target="_blank" rel="noopener">
+                <span class="mono"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></svg></span>
+                <span class="label">This host on the hub<small>opens in a new tab</small></span>
+            </a>
+            </nav>
+        <div class="side-foot">prismotr 1.2.3<br>read 12:34:56 UTC</div>
+    </aside>
+    <label class="scrim" for="drawer" aria-hidden="true"></label>
+
+    <main class="overview">
+        <header class="page-head">
+            <div>
+                <h1>Overview</h1>
+                <p class="sub">host-a.example.com · read 2026-10-16 12:34:56 UTC</p>
+            </div>
+            <a class="btn" href="/">Read again</a>
+        </header>
+
+        <section class="attention" aria-labelledby="attention-h">
+            <h2 id="attention-h">Needs attention</h2>
+            <div class="alert err">
+                <span class="sev">Error</span>
+                <div><b>Services · php8.4-fpm</b><p><code>failed</code></p></div>
+            </div>
+            <div class="alert warn">
+                <span class="sev">Warning</span>
+                <div><b>Disks · /</b><p><code>85%</code> · 15 GiB free of 100 GiB</p></div>
+            </div>
+            <div class="alert err">
+                <span class="sev">Error</span>
+                <div><b>Munin · a request over loopback</b><p><code>the well is dry</code></p></div>
+            </div>
+            </section>
+        <section class="tiles" aria-label="Vital signs">
+            <article class="card tile ok">
+                <div class="t-label">Uptime</div>
+                <div class="t-value">1d 2h 3m</div>
+                <div class="t-sub">since 2026-10-15 10:31 UTC</div>
+                </article>
+            <article class="card tile ok">
+                <div class="t-label">Load</div>
+                <div class="t-value">0.35</div>
+                <div class="t-sub">1m 0.42 · 15m 0.30 · 4 cores</div>
+                </article>
+            <article class="card tile ok">
+                <div class="t-label">Memory</div>
+                <div class="t-value">62%</div>
+                <span class="meter"><i style="width: 62%"></i></span>
+                <div class="t-sub">3 GiB available of 8 GiB · no swap</div>
+                </article>
+            <article class="card tile warn">
+                <div class="t-label">Fullest disk · /</div>
+                <div class="t-value">85%</div>
+                <span class="meter"><i style="width: 85%"></i></span>
+                <div class="t-sub">15 GiB free of 100 GiB</div>
+                </article>
+            </section>
+        <p class="src">/proc · read 12:34:56 UTC</p>
+
+        <div class="two">
+            <section class="card">
+                <h3>Services</h3>
+                <div class="rows"><div class="row ok"><span>nginx</span><span class="val">active</span></div>
+<div class="row err"><span>php8.4-fpm</span><span class="val">failed</span></div>
+</div>
+                <p class="src">systemctl is-active · read 12:34:56 UTC</p>
+            </section>
+            <section class="card">
+                <h3>Disks</h3>
+                <div class="rows"><div class="row warn"><span>/</span><span class="val">85%<small>15 GiB free of 100 GiB</small></span><span class="meter"><i style="width: 85%"></i></span></div>
+</div>
+                <p class="src">/proc/mounts, statfs · read 12:34:56 UTC</p>
+            </section>
+        </div>
+
+        <section class="sites" aria-labelledby="sites-h">
+            <h2 id="sites-h">Sites</h2>
+            <article class="card">
+                <div class="site-head">
+                    <span class="mono">Mu<i class="dot err"></i></span>
+                    <div class="site-name"><h3>Munin</h3><span>location · /munin</span></div>
+                    <a class="btn primary wide" href="/site/munin">Open</a>
+                    <a class="btn primary narrow" href="/munin" target="_blank" rel="noopener">Open</a>
+                    
+                </div>
+                <p class="error">the well is dry</p>
+                <p class="src">a request over loopback · read 12:34:56 UTC</p>
+            </article>
+            <article class="card">
+                <div class="site-head">
+                    <span class="mono">sh<i class="dot ok"></i></span>
+                    <div class="site-name"><h3>shop.example.com</h3><span>vhost</span></div>
+                    <a class="btn primary" href="//shop.example.com/" target="_blank" rel="noopener">Open</a>
+                    
+                </div>
+                <div class="rows"><div class="row ok"><span>Certificate</span><span class="val">expires 2026-11-15, in 30 days</span></div>
+</div>
+                <details>
+                    <summary>Logs</summary>
+                    <div class="logs">
+                        <div><div class="log-name">/var/log/nginx/shop.log</div><pre>first line
+second &lt;line&gt;
+</pre></div>
+                        </div>
+                </details>
+                <p class="src">the logs listed · read 12:34:56 UTC</p>
+            </article>
+            </section>
+        </main>
+    </div>
+</body>
+</html>

@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{{.Title}} - Admin Panel</title>
+    <link rel="stylesheet" href="{{.Static}}/panel.css">
+</head>
+<body>
+<div class="app{{if .Open}} framed{{end}}">
+    <input type="checkbox" id="drawer" class="drawer-toggle" aria-label="Show the menu">
+    {{if .Open}}<input type="checkbox" id="peek" class="peek-toggle" aria-label="Show the menu">
+    {{end}}<header class="topbar">
+        <label class="icon-btn" for="drawer" title="Show the menu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></label>
+        <span class="host">{{.Host}}</span>
+        {{with .Attention}}<span class="count {{$.Worst}}">{{len .}}</span>{{end}}
+    </header>
+    <aside class="side" aria-label="Panel navigation">
+        <div class="brand">
+            <div>
+                <div class="eyebrow">host</div>
+                <div class="host">{{.Host}}</div>
+                {{with .Domain}}<div class="domain">{{.}}</div>{{end}}
+            </div>
+            <label class="icon-btn close-drawer" for="drawer" title="Close the menu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></label>
+        </div>
+        <nav class="nav" aria-label="Panel">
+            <a class="item" href="{{.Home}}"{{if not .Open}} aria-current="page"{{end}} title="Overview">
+                <span class="mono"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="7" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/><rect x="13" y="13" width="7" height="7" rx="1.5"/></svg></span>
+                <span class="label">Overview</span>
+                {{with .Attention}}<span class="count {{$.Worst}}">{{len .}}</span>{{end}}
+            </a>
+            {{with .Sites}}<div class="section-title">Sites</div>
+            {{range .}}{{if .NewTab}}<a class="item" href="{{.Href}}" target="_blank" rel="noopener" title="{{.Title}}">{{template "entry" .}}</a>
+            {{else}}<a class="item wide" href="{{.Href}}"{{if .Current}} aria-current="page"{{end}} title="{{.Title}}">{{template "entry" .}}</a>
+            <a class="item narrow" href="{{.Path}}" target="_blank" rel="noopener" title="{{.Title}}">{{template "entry" .}}</a>
+            {{end}}{{end}}{{end}}{{if or .MainSite .HubURL}}<div class="section-title">Links</div>
+            {{end}}{{if .MainSite}}<a class="item" href="/" target="_blank" rel="noopener">
+                <span class="mono">/</span>
+                <span class="label">Main Site<small>opens in a new tab</small></span>
+            </a>
+            {{end}}{{with .HubURL}}<a class="item" href="{{.}}" target="_blank" rel="noopener">
+                <span class="mono"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></svg></span>
+                <span class="label">This host on the hub<small>opens in a new tab</small></span>
+            </a>
+            {{end}}</nav>
+        {{with .Open}}<div class="rail-tools">
+            <a class="icon-btn" href="{{.Href}}" title="Reload the site" aria-label="Reload the site"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 5.7M20 4v7h-7"/></svg></a>
+            <a class="icon-btn" href="{{.Path}}" target="_blank" rel="noopener" title="Open in a new tab" aria-label="Open {{.Title}} in a new tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></svg></a>
+            <label class="icon-btn" for="peek" title="Show the menu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M5 6l6 6-6 6M13 6l6 6-6 6"/></svg></label>
+        </div>
+        {{end}}<div class="side-foot">prismotr {{.Version}}<br>read {{.Page.ReadAt.UTC.Format "15:04:05"}} UTC</div>
+    </aside>
+    <label class="scrim" for="drawer" aria-hidden="true"></label>
+
+    {{with .Open}}<main class="frame-pane">
+        <iframe src="{{.Path}}" title="{{.Title}}"></iframe>
+    </main>
+    {{else}}<main class="overview">
+        <header class="page-head">
+            <div>
+                <h1>Overview</h1>
+                <p class="sub">{{.Title}} · read {{.Page.ReadAt.UTC.Format "2006-01-02 15:04:05"}} UTC</p>
+            </div>
+            <a class="btn" href="{{.Home}}">Read again</a>
+        </header>
+
+        {{with .Attention}}<section class="attention" aria-labelledby="attention-h">
+            <h2 id="attention-h">Needs attention</h2>
+            {{range .}}<div class="alert {{.Row.State}}">
+                <span class="sev">{{if eq .Row.State.String "err"}}Error{{else}}Warning{{end}}</span>
+                <div><b>{{.Card}} · {{.Row.Label}}</b><p><code>{{.Row.Value}}</code>{{with .Row.Detail}} · {{.}}{{end}}</p></div>
+            </div>
+            {{end}}</section>
+        {{end}}<section class="tiles" aria-label="Vital signs">
+            {{range .Tiles}}<article class="card tile {{.State}}">
+                <div class="t-label">{{.Label}}</div>
+                <div class="t-value">{{.Value}}</div>
+                {{if .Used}}<span class="meter"><i style="width: {{percent .Used}}%"></i></span>
+                {{end}}{{with .Detail}}<div class="t-sub">{{.}}</div>
+                {{end}}</article>
+            {{end}}</section>
+        {{with .Page.Vitals}}<p class="src">{{template "source" .}}</p>{{end}}
+
+        <div class="two">
+            {{template "card" .Page.Services}}
+            {{template "card" .Page.Disks}}
+        </div>
+
+        {{with .Sites}}<section class="sites" aria-labelledby="sites-h">
+            <h2 id="sites-h">Sites</h2>
+            {{range .}}<article class="card">
+                <div class="site-head">
+                    <span class="mono">{{.Monogram}}<i class="dot {{.Card.State}}"></i></span>
+                    <div class="site-name"><h3>{{.Title}}</h3><span>{{.Kind}}{{with .Path}} · {{.}}{{end}}</span></div>
+                    {{if .NewTab}}<a class="btn primary" href="{{.Href}}" target="_blank" rel="noopener">Open</a>
+                    {{else}}<a class="btn primary wide" href="{{.Href}}">Open</a>
+                    <a class="btn primary narrow" href="{{.Path}}" target="_blank" rel="noopener">Open</a>
+                    {{end}}
+                </div>
+                {{with .Card.Err}}<p class="error">{{.}}</p>
+                {{end}}{{with .Card.Rows}}<div class="rows">{{template "rows" .}}</div>
+                {{end}}{{with .Card.Logs}}<details>
+                    <summary>Logs</summary>
+                    <div class="logs">
+                        {{range .}}<div><div class="log-name">{{.Label}}</div>{{if .Lines}}<pre>{{range .Lines}}{{.}}
+{{end}}</pre>{{else if .Value}}<pre class="{{.State}}">{{.Value}}</pre>{{else}}<pre>empty</pre>{{end}}</div>
+                        {{end}}</div>
+                </details>
+                {{end}}<p class="src">{{template "source" .Card}}</p>
+            </article>
+            {{end}}</section>
+        {{end}}</main>
+    {{end}}</div>
+</body>
+</html>
+{{- define "entry"}}<span class="mono">{{.Monogram}}<i class="dot {{.Card.State}}"></i></span><span class="label">{{.Title}}<small>{{.Sub}}</small></span>{{end}}
+{{- define "source"}}{{.Source}} · read {{.ReadAt.UTC.Format "15:04:05"}} UTC{{end}}
+{{- define "rows"}}{{range .}}<div class="row {{.State}}"><span>{{.Label}}</span><span class="val">{{.Value}}{{with .Detail}}<small>{{.}}</small>{{end}}</span>{{if .Used}}<span class="meter"><i style="width: {{percent .Used}}%"></i></span>{{end}}</div>
+{{end}}{{end}}
+{{- define "card"}}<section class="card">
+                <h3>{{.Title}}</h3>
+                {{with .Err}}<p class="error">{{.}}</p>
+                {{end}}{{with .Rows}}<div class="rows">{{template "rows" .}}</div>
+                {{end}}<p class="src">{{template "source" .}}</p>
+            </section>{{end -}}

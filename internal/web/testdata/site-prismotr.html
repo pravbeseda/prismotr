@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>host-a.example.com - Admin Panel</title>
+    <link rel="stylesheet" href="/prismotr/static/panel.css">
+</head>
+<body>
+<div class="app framed">
+    <input type="checkbox" id="drawer" class="drawer-toggle" aria-label="Show the menu">
+    <input type="checkbox" id="peek" class="peek-toggle" aria-label="Show the menu">
+    <header class="topbar">
+        <label class="icon-btn" for="drawer" title="Show the menu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></label>
+        <span class="host">host-a</span>
+        <span class="count err">3</span>
+    </header>
+    <aside class="side" aria-label="Panel navigation">
+        <div class="brand">
+            <div>
+                <div class="eyebrow">host</div>
+                <div class="host">host-a</div>
+                <div class="domain">host-a.example.com</div>
+            </div>
+            <label class="icon-btn close-drawer" for="drawer" title="Close the menu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></label>
+        </div>
+        <nav class="nav" aria-label="Panel">
+            <a class="item" href="/prismotr" title="Overview">
+                <span class="mono"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="7" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/><rect x="13" y="13" width="7" height="7" rx="1.5"/></svg></span>
+                <span class="label">Overview</span>
+                <span class="count err">3</span>
+            </a>
+            <div class="section-title">Sites</div>
+            <a class="item wide" href="/prismotr/site/munin" aria-current="page" title="Munin"><span class="mono">Mu<i class="dot err"></i></span><span class="label">Munin<small>/munin</small></span></a>
+            <a class="item narrow" href="/munin" target="_blank" rel="noopener" title="Munin"><span class="mono">Mu<i class="dot err"></i></span><span class="label">Munin<small>/munin</small></span></a>
+            <a class="item" href="//shop.example.com/" target="_blank" rel="noopener" title="shop.example.com"><span class="mono">sh<i class="dot ok"></i></span><span class="label">shop.example.com<small>vhost · opens in a new tab</small></span></a>
+            <div class="section-title">Links</div>
+            <a class="item" href="/" target="_blank" rel="noopener">
+                <span class="mono">/</span>
+                <span class="label">Main Site<small>opens in a new tab</small></span>
+            </a>
+            </nav>
+        <div class="rail-tools">
+            <a class="icon-btn" href="/prismotr/site/munin" title="Reload the site" aria-label="Reload the site"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 5.7M20 4v7h-7"/></svg></a>
+            <a class="icon-btn" href="/munin" target="_blank" rel="noopener" title="Open in a new tab" aria-label="Open Munin in a new tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></svg></a>
+            <label class="icon-btn" for="peek" title="Show the menu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M5 6l6 6-6 6M13 6l6 6-6 6"/></svg></label>
+        </div>
+        <div class="side-foot">prismotr 1.2.3<br>read 12:34:56 UTC</div>
+    </aside>
+    <label class="scrim" for="drawer" aria-hidden="true"></label>
+
+    <main class="frame-pane">
+        <iframe src="/munin" title="Munin"></iframe>
+    </main>
+    </div>
+</body>
+</html>
